@@ -11,7 +11,7 @@
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input { width: 100%; padding: 8px; box-sizing: border-box; }
         button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
-        .summary { margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        .summary { margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; display: none; }
         .summary-item { margin-bottom: 10px; }
 
         /* Progress Bar Styles */
@@ -21,6 +21,7 @@
             background-color: #f3f3f3;
             border-radius: 5px;
             margin: 20px 0;
+            display: none;
         }
 
         .progress-bar {
@@ -31,6 +32,7 @@
             text-align: center;
             line-height: 20px;
             color: white;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -46,13 +48,14 @@
             <input type="datetime-local" id="end_datetime">
         </div>
         <button onclick="getSummary()">Get Summary</button>
-        
+
         <!-- Progress Bar -->
-        <div class="progress-bar-container" style="display:none;">
+        <div class="progress-bar-container">
             <div id="progressBar" class="progress-bar">0%</div>
         </div>
 
-        <div id="summary" class="summary" style="display:none;">
+        <!-- Summary Data -->
+        <div id="summary" class="summary">
             <h2>Summary</h2>
             <div class="summary-item" id="cash_sales_instore"></div>
             <div class="summary-item" id="cash_sales_delivery"></div>
@@ -67,15 +70,20 @@
             const startDatetime = document.getElementById('start_datetime').value;
             const endDatetime = document.getElementById('end_datetime').value;
 
+            if (!startDatetime || !endDatetime) {
+                alert("Please select both start and end date/time.");
+                return;
+            }
+
             // Show the progress bar
             document.querySelector('.progress-bar-container').style.display = 'block';
             let progress = 0;
             const progressBar = document.getElementById('progressBar');
 
-            // Simulate the progress over 30 seconds (30000 ms)
-            const interval = 300; // 300 ms per update for 30 seconds total duration
-            const timer = setInterval(() => {
-                progress += 1; // Increment by 1% every 300 ms
+            // Simulate the progress bar over 30 seconds
+            const interval = 300; // Update every 300ms
+            let timer = setInterval(() => {
+                progress += 1; // Increment by 1% every 300ms
                 progressBar.style.width = progress + '%';
                 progressBar.innerText = progress + '%';
 
@@ -86,10 +94,14 @@
             }, interval);
 
             // Fetch the summary data from the backend
-            fetch(`http://127.0.0.1:5000/summary?start_datetime=${encodeURIComponent(startDatetime)}&end_datetime=${encodeURIComponent(endDatetime)}`)
+            fetch(`/summary?start_datetime=${encodeURIComponent(startDatetime)}&end_datetime=${encodeURIComponent(endDatetime)}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Hide the progress bar when data is fetched
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    // Hide the progress bar and reset if data is ready
                     clearInterval(timer);
                     document.querySelector('.progress-bar-container').style.display = 'none';
 
@@ -104,6 +116,7 @@
                     // Hide the progress bar if there's an error
                     clearInterval(timer);
                     document.querySelector('.progress-bar-container').style.display = 'none';
+
                     alert('Error fetching summary. Please check your input and try again.');
                     console.error('Error:', error);
                 });
@@ -111,3 +124,4 @@
     </script>
 </body>
 </html>
+

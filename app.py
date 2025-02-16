@@ -1,29 +1,16 @@
-
 from flask import Flask, render_template, request, jsonify
 from selenium import webdriver
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 import pandas as pd
 import time
 import os
 import glob
 
 app = Flask(__name__)
-
-def filter_by_datetime(df, start_datetime, end_datetime):
-    if 'Date' in df.columns and 'Time' in df.columns:
-        df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    else:
-        raise Exception("Date and Time columns are required to filter by datetime.")
-    
-    start_dt = pd.to_datetime(start_datetime)
-    end_dt = pd.to_datetime(end_datetime)
-    
-    filtered_df = df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
-    return filtered_df
 
 @app.route('/')
 def index():
@@ -36,12 +23,16 @@ def generate_report():
 
     print(f"Received request for summary from {start_datetime} to {end_datetime}")
 
-    # Configure Firefox WebDriver with binary path and headless options
-    service = Service("C:\\Users\\gutta\\Desktop\\Downloads\\geckodriver-v0.35.0-win32\\geckodriver.exe")
-    firefox_options = Options()
-    firefox_options.binary_location = "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
-    firefox_options.headless = True
-    driver = webdriver.Firefox(service=service, options=firefox_options)
+    # Set up Chrome WebDriver (Headless Mode for Render)
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run without a visible UI
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+
+    # Specify ChromeDriver path (Render environment)
+    chrome_driver_path = "/usr/bin/chromedriver"
+    service = Service(chrome_driver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
         # Login to HungerRush
@@ -68,7 +59,7 @@ def generate_report():
         run_report_button.click()
         print("Running report...")
 
-        # Use JavaScript to click the Export dropdown and then click "Export all data to Excel"
+        # Open the Export dropdown and click "Export all data to Excel"
         export_dropdown = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
         driver.execute_script("arguments[0].click();", export_dropdown)
         print("Opened Export dropdown")
@@ -76,8 +67,9 @@ def generate_report():
         driver.execute_script("arguments[0].click();", export_excel_option)
         print("Report download initiated!")
 
-        # Find the latest Excel file that matches the pattern "order-details-*.xlsx"
-        excel_pattern = "C:\\Users\\gutta\\Downloads\\order-details-*.xlsx"
+        # Wait and find the latest Excel file
+        excel_pattern = "/tmp/order-details-*.xlsx"  # Adjust path if needed
+        time.sleep(5)  # Allow time for the file to appear
         excel_files = glob.glob(excel_pattern)
         if not excel_files:
             print("No matching Excel file found.")
@@ -86,22 +78,16 @@ def generate_report():
         excel_file_path = max(excel_files, key=os.path.getctime)
         print(f"Excel file found: {excel_file_path}")
 
-        # Process the Excel file using pandas
-        df = pd.read_excel(excel_file_path)
+        # Read the Excel file
+        df = pd.read_excel(excel_file_path, engine="openpyxl")
 
-        # Filter data by the provided datetime range
-        df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
+        # Process sales and tips data
+        cash_sales_in_store = df[df["Type"].isin(["Pickup", "Pick Up", "Web Pick Up"]) & (df["Payment"].str.contains("Cash", na=False))]["Total"].sum()
+        cash_sales_delivery = df[df["Type"] == "Delivery"][df["Payment"].str.contains("Cash", na=False)]["Total"].sum()
+        credit_card_tips_in_store = df[df["Type"].isin(["Pickup", "Pick Up", "Web Pick Up"])]["Tips"].sum()
+        credit_card_tips_delivery = df[df["Type"] == "Delivery"]["Tips"].sum()
 
-        # Updated calculations to use Sub Total for cash sales
-        cash_sales_in_store = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
-                                          (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Sub Total'].sum()
-        cash_sales_delivery = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
-                                          (df_filtered['Type'].str.contains('Delivery', na=False))]['Sub Total'].sum()
-        credit_card_tips_in_store = df_filtered[(df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
-                                                (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Tips'].sum()
-        credit_card_tips_delivery = df_filtered[(df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
-                                                (df_filtered['Type'].str.contains('Delivery', na=False))]['Tips'].sum()
-
+        # Return summary data
         summary_data = {
             "Cash Sales (In-Store)": round(cash_sales_in_store, 2),
             "Cash Sales (Delivery)": round(cash_sales_delivery, 2),
@@ -118,8 +104,5 @@ def generate_report():
     finally:
         driver.quit()
 
-import os
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Default to port 5000 if PORT is not set
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=10000, debug=False)
