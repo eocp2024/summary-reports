@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: summary-reports
+    env: python
+    buildCommand: "./render-build.sh"
+    startCommand: "gunicorn -b 0.0.0.0:5000 app:app"
+    plan: free
+    envVars:
+      - key: CHROMEDRIVER_PATH
+        value: "/usr/bin/chromedriver"
+      - key: PORT
+        value: "5000"
