@@ -44,6 +44,8 @@ def generate_report():
     chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
     chrome_options.binary_location = "/usr/bin/google-chrome-stable"  # Ensure correct path on Render
 
+    driver = None  # Initialize driver as None to avoid UnboundLocalError
+
     try:
         # Start Chrome WebDriver
         service = ChromeService(ChromeDriverManager().install())
@@ -122,7 +124,8 @@ def generate_report():
         return jsonify({"error": "Failed to generate report. Please try again later."}), 500
 
     finally:
-        driver.quit()
+        if driver is not None:
+            driver.quit()  # Only quit if driver was successfully initialized
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=10000)
