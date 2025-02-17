@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, jsonify
 from selenium import webdriver
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager  # Auto-install driver
 import pandas as pd
 import time
 import os
@@ -13,6 +14,7 @@ import glob
 app = Flask(__name__)
 
 def filter_by_datetime(df, start_datetime, end_datetime):
+    """Filters data based on provided datetime range."""
     if 'Date' in df.columns and 'Time' in df.columns:
         df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
     else:
@@ -21,8 +23,7 @@ def filter_by_datetime(df, start_datetime, end_datetime):
     start_dt = pd.to_datetime(start_datetime)
     end_dt = pd.to_datetime(end_datetime)
     
-    filtered_df = df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
-    return filtered_df
+    return df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
 
 @app.route('/')
 def index():
@@ -34,18 +35,17 @@ def generate_report():
     end_datetime = request.args.get('end_datetime')
 
     print(f"🔹 Received request for summary from {start_datetime} to {end_datetime}")
-    print("💻 Running locally, using Firefox.")
 
-    # Configure Firefox WebDriver with binary path and headless options
-    service = Service("C:\\Users\\gutta\\Desktop\\Downloads\\geckodriver-v0.35.0-win32\\geckodriver.exe")
-    firefox_options = Options()
-    firefox_options.binary_location = "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
-    firefox_options.headless = True
+    # ✅ Configure Chrome WebDriver for Render Deployment
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run without UI
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    driver = None
+    service = Service(ChromeDriverManager().install())  # Auto-install ChromeDriver
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
     try:
-        driver = webdriver.Firefox(service=service, options=firefox_options)
-
         # ✅ Step 1: Login to HungerRush
         driver.get("https://hub.hungerrush.com/")
         WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("guttaman86@gmail.com")
@@ -57,34 +57,24 @@ def generate_report():
         WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "rptvNextAnchor"))).click()
         print("✅ Navigated to Reporting - NEW!")
 
-        retry_count = 3
-        for attempt in range(retry_count):
-            try:
-                order_details = WebDriverWait(driver, 60).until(
-                    EC.element_to_be_clickable((By.XPATH, "//span[text()='Order Details']"))
-                )
-                order_details.click()
-                print("✅ Selected Order Details")
-                break
-            except:
-                if attempt == retry_count - 1:
-                    print("❌ Failed to find Order Details after multiple attempts.")
-                    return jsonify({"error": "Failed to locate Order Details."}), 500
-                print("🔄 Retrying Order Details selection...")
-                time.sleep(2)
+        order_details = WebDriverWait(driver, 60).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='Order Details']"))
+        )
+        order_details.click()
+        print("✅ Selected Order Details")
 
-        # ✅ Step 3: Handle the "Store" dropdown
+        # ✅ Step 3: Select Store (Piqua)
         store_trigger = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@class, 'p-multiselect-trigger-icon')]")))
         store_trigger.click()
         WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
         print("✅ Selected Piqua store")
 
-        # ✅ Step 4: Click "Run Report"
+        # ✅ Step 4: Run Report
         run_report_button = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']")))
         run_report_button.click()
         print("📊 Running report...")
 
-        # ✅ Step 5: Click the Export dropdown and select "Export all data to Excel"
+        # ✅ Step 5: Export to Excel
         export_dropdown = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
         driver.execute_script("arguments[0].click();", export_dropdown)
         print("✅ Opened Export dropdown")
@@ -95,7 +85,7 @@ def generate_report():
 
         # ✅ Step 6: Find the latest downloaded Excel file
         time.sleep(5)  # Wait for file to download
-        excel_pattern = "C:\\Users\\gutta\\Downloads\\order-details-*.xlsx"
+        excel_pattern = "/tmp/order-details-*.xlsx"  # Updated path for Render
         excel_files = glob.glob(excel_pattern)
         if not excel_files:
             print("❌ No matching Excel file found.")
@@ -106,11 +96,9 @@ def generate_report():
 
         # ✅ Step 7: Process the Excel file using pandas
         df = pd.read_excel(excel_file_path)
-
-        # ✅ Step 8: Filter data by the provided datetime range
         df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
 
-        # ✅ Step 9: Updated calculations
+        # ✅ Step 8: Updated calculations
         cash_sales_in_store = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
                                           (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Total'].sum()
         cash_sales_delivery = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
@@ -131,16 +119,11 @@ def generate_report():
 
     except Exception as e:
         print(f"❌ Error during report generation: {e}")
-        if driver:
-            print(driver.page_source)  # Print page source for debugging
         return jsonify({"error": "Failed to generate report. Please try again later."}), 500
 
     finally:
-        if driver:
-            driver.quit()
+        driver.quit()
 
 if __name__ == '__main__':
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=5000)
-
-
+    from gunicorn.app.wsgiapp import run
+    run()

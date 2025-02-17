@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Install dependencies
-apt-get update && apt-get install -y wget unzip curl firefox-esr
+apt-get update && apt-get install -y wget unzip curl
 
-# Install ChromeDriver for Selenium
+# Install Google Chrome
 wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
 dpkg -i google-chrome-stable_current_amd64.deb || apt-get install -fy
 
