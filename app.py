@@ -5,7 +5,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager  # Auto-install driver
+from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
 import os
@@ -38,10 +38,10 @@ def generate_report():
 
     # ✅ Configure Chrome WebDriver for Render Deployment
     chrome_options = Options()
-chrome_options.binary_location = "/usr/bin/google-chrome"  # Explicit Chrome binary location
-chrome_options.add_argument("--headless")  # Run without UI
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.binary_location = "/usr/bin/google-chrome"  # Explicit Chrome binary location
+    chrome_options.add_argument("--headless")  # Run without UI
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
     service = Service(ChromeDriverManager().install())  # Auto-install ChromeDriver
     driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -126,5 +126,5 @@ chrome_options.add_argument("--disable-dev-shm-usage")
         driver.quit()
 
 if __name__ == '__main__':
-    from gunicorn.app.wsgiapp import run
-    run()
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=5000)
