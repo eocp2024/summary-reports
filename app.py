@@ -7,7 +7,6 @@ import pandas as pd
 import time
 import os
 import glob
-import subprocess
 
 app = Flask(__name__)
 
@@ -22,29 +21,22 @@ def generate_report():
 
     print(f"Received request for summary from {start_datetime} to {end_datetime}")
 
-    # **Install Chrome in the Render environment**
-    try:
-        subprocess.run("apt-get update && apt-get install -y google-chrome-stable", shell=True, check=True)
-        print("✅ Chrome installed successfully!")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install Chrome: {e}")
-        return jsonify({"error": "Failed to install Chrome on server"}), 500
+    # ✅ Use the pre-installed Chrome binary on Render
+    chrome_binary_path = "/opt/render/project/chrome/chrome"  # Adjust this if needed
 
-    # Configure WebDriver for Chrome (Headless Mode for Render)
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run without UI
-    chrome_options.add_argument("--no-sandbox")  # Needed for cloud environments
-    chrome_options.add_argument("--disable-dev-shm-usage")  # Prevents memory issues
-    chrome_options.add_argument("--disable-gpu")  # Prevents GPU issues in cloud
-    chrome_options.add_argument("--remote-debugging-port=9222")  # Allows debugging
+    chrome_options.binary_location = chrome_binary_path  # Use Render's pre-installed Chrome
+    chrome_options.add_argument("--headless")  
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # Auto-download and use ChromeDriver
+    # ✅ Use ChromeDriver Manager to handle ChromeDriver versioning
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     try:
         # Login to HungerRush
         driver.get("https://hub.hungerrush.com/")
-        time.sleep(5)  # Wait for the page to load
+        time.sleep(5)
         driver.find_element("id", "UserName").send_keys("guttaman86@gmail.com")
         driver.find_element("id", "Password").send_keys("Eocp2024#")
         driver.find_element("id", "newLogonButton").click()
