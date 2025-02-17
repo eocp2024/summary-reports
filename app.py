@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, jsonify, request
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -7,14 +7,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
-import time
 import os
+import time
 import glob
 
+# Initialize Flask App
 app = Flask(__name__)
 
+# Function to Filter Data by Date and Time
 def filter_by_datetime(df, start_datetime, end_datetime):
-    """Filters data based on provided datetime range."""
+    """Filters data within the specified datetime range."""
     if 'Date' in df.columns and 'Time' in df.columns:
         df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
     else:
@@ -25,25 +27,29 @@ def filter_by_datetime(df, start_datetime, end_datetime):
     
     return df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
 
+# Home Route
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return jsonify({"message": "API is running!"})
 
+# Summary Route
 @app.route('/summary', methods=['GET'])
 def generate_report():
+    """Generates report by logging into HungerRush and downloading Excel data."""
     start_datetime = request.args.get('start_datetime')
     end_datetime = request.args.get('end_datetime')
 
     print(f"🔹 Received request for summary from {start_datetime} to {end_datetime}")
 
-    # ✅ Configure Chrome WebDriver for Render Deployment
+    # ✅ Configure Chrome WebDriver for Render
     chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/google-chrome-stable"  # Correct path for Render
+    chrome_options.binary_location = "/usr/bin/chromium-browser"  # Corrected binary path for Render
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    service = Service(ChromeDriverManager().install())  # Auto-install ChromeDriver
+    # Setup ChromeDriver
+    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
@@ -86,7 +92,7 @@ def generate_report():
 
         # ✅ Step 6: Find the latest downloaded Excel file
         time.sleep(5)  # Wait for file to download
-        excel_pattern = "/tmp/order-details-*.xlsx"  # Updated path for Render
+        excel_pattern = "/tmp/order-details-*.xlsx"  # Render-compatible path
         excel_files = glob.glob(excel_pattern)
         if not excel_files:
             print("❌ No matching Excel file found.")
@@ -99,7 +105,7 @@ def generate_report():
         df = pd.read_excel(excel_file_path)
         df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
 
-        # ✅ Step 8: Updated calculations
+        # ✅ Step 8: Compute Sales and Tips
         cash_sales_in_store = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
                                           (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Total'].sum()
         cash_sales_delivery = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
