@@ -1,16 +1,19 @@
 #!/bin/bash
 
-# Update package list
-apt-get update
-
-# Install Firefox
-apt-get install -y firefox
+# Update package lists and install required dependencies
+apt-get update && apt-get install -y wget unzip firefox
 
 # Install GeckoDriver
-GECKODRIVER_VERSION="v0.35.0"
-wget -q "https://github.com/mozilla/geckodriver/releases/download/$GECKODRIVER_VERSION/geckodriver-linux64.tar.gz"
-tar -xzf geckodriver-linux64.tar.gz
+GECKO_VERSION="0.35.0"
+wget "https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VERSION}/geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
+tar -xzf geckodriver-v${GECKO_VERSION}-linux64.tar.gz
 chmod +x geckodriver
 mv geckodriver /usr/local/bin/
+rm geckodriver-v${GECKO_VERSION}-linux64.tar.gz
+echo "✅ GeckoDriver installed successfully!"
 
-echo "GeckoDriver installed successfully!"
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "✅ Build process completed successfully!"
