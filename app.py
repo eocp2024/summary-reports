@@ -1,22 +1,21 @@
-from flask import Flask, jsonify, request
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
 import os
 import time
 import glob
+import pandas as pd
+from flask import Flask, render_template, request, jsonify
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
-# Initialize Flask App
 app = Flask(__name__)
 
-# Function to Filter Data by Date and Time
+# ✅ Function to filter reports by date and time
 def filter_by_datetime(df, start_datetime, end_datetime):
-    """Filters data within the specified datetime range."""
+    """Filters data based on provided datetime range."""
     if 'Date' in df.columns and 'Time' in df.columns:
         df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
     else:
@@ -27,73 +26,69 @@ def filter_by_datetime(df, start_datetime, end_datetime):
     
     return df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
 
-# Home Route
 @app.route('/')
 def index():
-    return jsonify({"message": "API is running!"})
+    return render_template('index.html')
 
-# Summary Route
 @app.route('/summary', methods=['GET'])
 def generate_report():
-    """Generates report by logging into HungerRush and downloading Excel data."""
     start_datetime = request.args.get('start_datetime')
     end_datetime = request.args.get('end_datetime')
 
     print(f"🔹 Received request for summary from {start_datetime} to {end_datetime}")
 
-    # ✅ Configure Chrome WebDriver for Render
+    # ✅ Configure Selenium WebDriver for Render
     chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/chromium-browser"  # Corrected binary path for Render
-    chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.binary_location = "/usr/bin/chromium-browser"  # Ensure it's Render-compatible
+    chrome_options.add_argument("--headless")  # Headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # Setup ChromeDriver
-    service = Service(ChromeDriverManager().install())
+    service = Service(ChromeDriverManager().install())  # Auto-install ChromeDriver
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
         # ✅ Step 1: Login to HungerRush
         driver.get("https://hub.hungerrush.com/")
-        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("guttaman86@gmail.com")
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("guttaman86@gmail.com")
         driver.find_element(By.ID, "Password").send_keys("Eocp2024#")
         driver.find_element(By.ID, "newLogonButton").click()
         print("✅ Login successful!")
 
         # ✅ Step 2: Navigate to "Order Details"
-        WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "rptvNextAnchor"))).click()
+        WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.ID, "rptvNextAnchor"))).click()
         print("✅ Navigated to Reporting - NEW!")
 
-        order_details = WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.XPATH, "//span[text()='Order Details']"))
-        )
-        order_details.click()
+        ).click()
         print("✅ Selected Order Details")
 
         # ✅ Step 3: Select Store (Piqua)
-        store_trigger = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@class, 'p-multiselect-trigger-icon')]")))
+        store_trigger = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@class, 'p-multiselect-trigger-icon')]")))
         store_trigger.click()
-        WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
+        WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
         print("✅ Selected Piqua store")
 
         # ✅ Step 4: Run Report
-        run_report_button = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']")))
+        run_report_button = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']")))
         run_report_button.click()
         print("📊 Running report...")
 
         # ✅ Step 5: Export to Excel
-        export_dropdown = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
+        export_dropdown = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
         driver.execute_script("arguments[0].click();", export_dropdown)
         print("✅ Opened Export dropdown")
 
-        export_excel_option = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Export all data to Excel')]")))
+        export_excel_option = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Export all data to Excel')]")))
         driver.execute_script("arguments[0].click();", export_excel_option)
         print("📂 Report download initiated!")
 
-        # ✅ Step 6: Find the latest downloaded Excel file
-        time.sleep(5)  # Wait for file to download
-        excel_pattern = "/tmp/order-details-*.xlsx"  # Render-compatible path
+        # ✅ Step 6: Locate the downloaded Excel file
+        time.sleep(5)  # Wait for download
+        excel_pattern = "/tmp/order-details-*.xlsx"  # Render-compatible temp directory
         excel_files = glob.glob(excel_pattern)
+        
         if not excel_files:
             print("❌ No matching Excel file found.")
             return jsonify({"error": "Excel file not found. Please try again."}), 500
@@ -105,7 +100,7 @@ def generate_report():
         df = pd.read_excel(excel_file_path)
         df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
 
-        # ✅ Step 8: Compute Sales and Tips
+        # ✅ Step 8: Perform calculations
         cash_sales_in_store = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
                                           (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Total'].sum()
         cash_sales_delivery = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
