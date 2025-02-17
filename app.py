@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import os
 import glob
+import shutil
 
 app = Flask(__name__)
 
@@ -21,16 +22,23 @@ def generate_report():
 
     print(f"Received request for summary from {start_datetime} to {end_datetime}")
 
-    # ✅ Use the pre-installed Chrome binary on Render
-    chrome_binary_path = "/opt/render/project/chrome/chrome"  # Adjust this if needed
+    # ✅ Dynamically find Chrome path in Render's environment
+    chrome_binary_path = shutil.which("google-chrome")  # Auto-detect installed Chrome
 
+    if not chrome_binary_path:
+        print("❌ Error: Google Chrome is not installed in Render's environment.")
+        return jsonify({"error": "Chrome is missing on the server. Please check the deployment settings."}), 500
+
+    print(f"✅ Chrome found at: {chrome_binary_path}")
+
+    # Configure WebDriver with Headless Chrome
     chrome_options = Options()
-    chrome_options.binary_location = chrome_binary_path  # Use Render's pre-installed Chrome
-    chrome_options.add_argument("--headless")  
+    chrome_options.binary_location = chrome_binary_path  # Use detected Chrome path
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # ✅ Use ChromeDriver Manager to handle ChromeDriver versioning
+    # ✅ Use WebDriver Manager to get the correct ChromeDriver version
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     try:
