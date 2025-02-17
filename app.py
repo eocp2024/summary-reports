@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import os
 import glob
+import subprocess
 
 app = Flask(__name__)
 
@@ -21,11 +22,21 @@ def generate_report():
 
     print(f"Received request for summary from {start_datetime} to {end_datetime}")
 
-    # Configure WebDriver for Chrome (Render-compatible)
+    # **Install Chrome in the Render environment**
+    try:
+        subprocess.run("apt-get update && apt-get install -y google-chrome-stable", shell=True, check=True)
+        print("✅ Chrome installed successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to install Chrome: {e}")
+        return jsonify({"error": "Failed to install Chrome on server"}), 500
+
+    # Configure WebDriver for Chrome (Headless Mode for Render)
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run without UI
     chrome_options.add_argument("--no-sandbox")  # Needed for cloud environments
     chrome_options.add_argument("--disable-dev-shm-usage")  # Prevents memory issues
+    chrome_options.add_argument("--disable-gpu")  # Prevents GPU issues in cloud
+    chrome_options.add_argument("--remote-debugging-port=9222")  # Allows debugging
 
     # Auto-download and use ChromeDriver
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
@@ -37,29 +48,29 @@ def generate_report():
         driver.find_element("id", "UserName").send_keys("guttaman86@gmail.com")
         driver.find_element("id", "Password").send_keys("Eocp2024#")
         driver.find_element("id", "newLogonButton").click()
-        print("Login successful!")
+        print("✅ Login successful!")
 
         # Navigate to "Order Details"
         time.sleep(5)
         driver.find_element("xpath", "//span[text()='Order Details']").click()
-        print("Selected Order Details")
+        print("✅ Selected Order Details")
 
         # Select "Piqua" store
         time.sleep(3)
         driver.find_element("xpath", "//span[contains(@class, 'p-multiselect-trigger-icon')]").click()
         driver.find_element("xpath", "//span[text()='Piqua']").click()
-        print("Selected Piqua store")
+        print("✅ Selected Piqua store")
 
         # Run the report
         time.sleep(3)
         driver.find_element("xpath", "//button[@id='runReport']//span[text()='Run Report']").click()
-        print("Running report...")
+        print("✅ Running report...")
 
         # Export report as Excel
         time.sleep(5)
         driver.find_element("xpath", "//div[@class='dx-button-content']//span[text()=' Export ']").click()
         driver.find_element("xpath", "//div[contains(text(), 'Export all data to Excel')]").click()
-        print("Report download initiated!")
+        print("✅ Report download initiated!")
 
         # Find the latest Excel file
         excel_pattern = "/tmp/order-details-*.xlsx"
@@ -67,11 +78,11 @@ def generate_report():
         excel_files = glob.glob(excel_pattern)
 
         if not excel_files:
-            print("No matching Excel file found.")
+            print("❌ No matching Excel file found.")
             return jsonify({"error": "Excel file not found. Please try again."}), 500
 
         excel_file_path = max(excel_files, key=os.path.getctime)
-        print(f"Excel file found: {excel_file_path}")
+        print(f"✅ Excel file found: {excel_file_path}")
 
         # Read Excel file
         df = pd.read_excel(excel_file_path)
@@ -96,7 +107,7 @@ def generate_report():
         return jsonify(summary_data)
 
     except Exception as e:
-        print(f"Error during report generation: {e}")
+        print(f"❌ Error during report generation: {e}")
         return jsonify({"error": "Failed to generate report. Please try again later."}), 500
 
     finally:
