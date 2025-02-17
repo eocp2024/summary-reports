@@ -67,4 +67,4 @@ flask
 gunicorn
 pandas
 openpyxl
-
+build.sh
