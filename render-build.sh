@@ -1,8 +1,16 @@
 #!/bin/bash
 
-# ✅ Update & Install Chrome
-apt-get update && apt-get install -y google-chrome-stable
+# Update package list
+apt-get update
 
-# ✅ Install Python Dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+# Install Firefox
+apt-get install -y firefox
+
+# Install GeckoDriver
+GECKODRIVER_VERSION="v0.35.0"
+wget -q "https://github.com/mozilla/geckodriver/releases/download/$GECKODRIVER_VERSION/geckodriver-linux64.tar.gz"
+tar -xzf geckodriver-linux64.tar.gz
+chmod +x geckodriver
+mv geckodriver /usr/local/bin/
+
+echo "GeckoDriver installed successfully!"
