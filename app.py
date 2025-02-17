@@ -30,7 +30,8 @@ def generate_report():
     chrome_options.add_argument("--disable-dev-shm-usage")
 
     try:
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        chrome_options.binary_location = "/usr/bin/chromium-browser"  # Render Chromium Path
+driver = webdriver.Chrome(options=chrome_options)
         print("✅ Chrome WebDriver started successfully.")
 
         # Open HungerRush login page
