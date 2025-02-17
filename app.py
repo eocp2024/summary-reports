@@ -38,10 +38,10 @@ def generate_report():
 
     # ✅ Configure Chrome WebDriver for Render Deployment
     chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/google-chrome"  # Explicit Chrome binary location
-    chrome_options.add_argument("--headless")  # Run without UI
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.binary_location = "/usr/bin/google-chrome-stable"  # Correct path for Render
+chrome_options.add_argument("--headless")  # Run in headless mode
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
 
     service = Service(ChromeDriverManager().install())  # Auto-install ChromeDriver
     driver = webdriver.Chrome(service=service, options=chrome_options)
