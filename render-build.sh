@@ -1,13 +1,11 @@
 #!/bin/bash
+# Render Build Script - Ensures all dependencies are correctly installed
 
-# Update package lists
-apt-get update && apt-get install -y wget unzip curl
+# Use pre-installed Chromium path on Render
+export CHROMIUM_PATH="/usr/bin/chromium"
 
-# Install Google Chrome
-wget -qO- https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | tee /etc/apt/sources.list.d/google-chrome.list
-apt-get update && apt-get install -y google-chrome-stable
-
-# Install dependencies
-pip install --upgrade pip
+# Install dependencies from requirements.txt
 pip install -r requirements.txt
+
+# Inform Render that the build is complete
+echo "✅ Build completed successfully!"
