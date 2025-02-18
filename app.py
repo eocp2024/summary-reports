@@ -5,25 +5,46 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
-import os
-import glob
-import time
 import subprocess
+import os
+import time
+import glob
 
 app = Flask(__name__)
 
-# ✅ Function to filter data
-def filter_by_datetime(df, start_datetime, end_datetime):
-    if 'Date' in df.columns and 'Time' in df.columns:
-        df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    else:
-        raise Exception("Date and Time columns are required to filter by datetime.")
+# ✅ Ensure Chrome and ChromeDriver are Installed
+def install_chrome_and_driver():
+    try:
+        print("🔹 Installing Chrome and ChromeDriver...")
+
+        # ✅ Install Chrome and ChromeDriver
+        subprocess.run("apt-get update && apt-get install -y chromium chromium-driver", shell=True, check=True)
+
+        # ✅ Set Chrome Binary Path
+        os.environ["CHROME_BIN"] = "/usr/bin/chromium-browser"
+        os.environ["CHROMEDRIVER_PATH"] = "/usr/bin/chromedriver"
+
+        print("✅ Chrome and ChromeDriver Installed Successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error installing Chrome: {e}")
+        exit(1)
+
+# ✅ Call installation before using Selenium
+install_chrome_and_driver()
+
+# ✅ Configure Chrome WebDriver for Railway/Render Deployment
+def get_chrome_driver():
+    chrome_options = Options()
+    chrome_options.binary_location = "/usr/bin/chromium-browser"
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     
-    start_dt = pd.to_datetime(start_datetime)
-    end_dt = pd.to_datetime(end_datetime)
-    
-    return df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
+    # ✅ Initialize WebDriver with proper binary paths
+    service = Service("/usr/bin/chromedriver")
+    return webdriver.Chrome(service=service, options=chrome_options)
 
 @app.route('/')
 def index():
@@ -36,28 +57,17 @@ def generate_report():
 
     print(f"🔹 Received request for summary from {start_datetime} to {end_datetime}")
 
-    # ✅ Install Chrome & ChromeDriver at runtime (if not already installed)
-    install_chrome_and_driver()
-
-    # ✅ Configure Selenium WebDriver for Railway
-    chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/chromium"  # Ensure correct path
-    chrome_options.add_argument("--headless")  # Headless mode
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    service = Service("/usr/bin/chromedriver")  # Use manually installed ChromeDriver
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver = get_chrome_driver()
 
     try:
-        # ✅ Step 1: Login to HungerRush
+        # ✅ Login to HungerRush
         driver.get("https://hub.hungerrush.com/")
-        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("YOUR_EMAIL")
-        driver.find_element(By.ID, "Password").send_keys("YOUR_PASSWORD")
+        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("guttaman86@gmail.com")
+        driver.find_element(By.ID, "Password").send_keys("Eocp2024#")
         driver.find_element(By.ID, "newLogonButton").click()
         print("✅ Login successful!")
 
-        # ✅ Step 2: Navigate to "Order Details"
+        # ✅ Navigate to "Order Details"
         WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "rptvNextAnchor"))).click()
         print("✅ Navigated to Reporting - NEW!")
 
@@ -67,18 +77,18 @@ def generate_report():
         order_details.click()
         print("✅ Selected Order Details")
 
-        # ✅ Step 3: Select Store (Piqua)
+        # ✅ Select Store (Piqua)
         store_trigger = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@class, 'p-multiselect-trigger-icon')]")))
         store_trigger.click()
         WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
         print("✅ Selected Piqua store")
 
-        # ✅ Step 4: Run Report
+        # ✅ Run Report
         run_report_button = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']")))
         run_report_button.click()
         print("📊 Running report...")
 
-        # ✅ Step 5: Export to Excel
+        # ✅ Export to Excel
         export_dropdown = WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
         driver.execute_script("arguments[0].click();", export_dropdown)
         print("✅ Opened Export dropdown")
@@ -87,8 +97,8 @@ def generate_report():
         driver.execute_script("arguments[0].click();", export_excel_option)
         print("📂 Report download initiated!")
 
-        # ✅ Step 6: Find the latest downloaded Excel file
-        time.sleep(5)  # Wait for file to download
+        # ✅ Find the latest downloaded Excel file
+        time.sleep(5)
         excel_pattern = "/tmp/order-details-*.xlsx"
         excel_files = glob.glob(excel_pattern)
         if not excel_files:
@@ -98,19 +108,18 @@ def generate_report():
         excel_file_path = max(excel_files, key=os.path.getctime)
         print(f"✅ Excel file found: {excel_file_path}")
 
-        # ✅ Step 7: Process the Excel file
+        # ✅ Process the Excel file using pandas
         df = pd.read_excel(excel_file_path)
-        df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
 
-        # ✅ Step 8: Compute Summary Data
-        cash_sales_in_store = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
-                                          (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Total'].sum()
-        cash_sales_delivery = df_filtered[(df_filtered['Payment'].str.contains('Cash', na=False)) & 
-                                          (df_filtered['Type'].str.contains('Delivery', na=False))]['Total'].sum()
-        credit_card_tips_in_store = df_filtered[(df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
-                                                (df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Tips'].sum()
-        credit_card_tips_delivery = df_filtered[(df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
-                                                (df_filtered['Type'].str.contains('Delivery', na=False))]['Tips'].sum()
+        # ✅ Calculate report summary
+        cash_sales_in_store = df[(df['Payment'].str.contains('Cash', na=False)) & 
+                                 (df['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Total'].sum()
+        cash_sales_delivery = df[(df['Payment'].str.contains('Cash', na=False)) & 
+                                 (df['Type'].str.contains('Delivery', na=False))]['Total'].sum()
+        credit_card_tips_in_store = df[(df['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
+                                       (df['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False))]['Tips'].sum()
+        credit_card_tips_delivery = df[(df['Payment'].str.contains('Visa|MC|AMEX', na=False)) & 
+                                       (df['Type'].str.contains('Delivery', na=False))]['Tips'].sum()
 
         summary_data = {
             "Cash Sales (In-Store)": round(cash_sales_in_store, 2),
@@ -127,10 +136,6 @@ def generate_report():
 
     finally:
         driver.quit()
-
-def install_chrome_and_driver():
-    """Ensures Chrome and ChromeDriver are installed inside Railway's container."""
-    subprocess.run("apt-get update && apt-get install -y chromium chromium-driver", shell=True, check=True)
 
 if __name__ == '__main__':
     from waitress import serve
