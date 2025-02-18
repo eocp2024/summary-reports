@@ -11,9 +11,11 @@
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input { width: 100%; padding: 8px; box-sizing: border-box; }
         button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
-        .summary { margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        .summary { margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; display: none; }
         .summary-item { margin-bottom: 10px; }
-        .progress-bar-container { width: 100%; height: 20px; background-color: #f3f3f3; border-radius: 5px; margin: 20px 0; }
+
+        /* Progress Bar */
+        .progress-bar-container { width: 100%; height: 20px; background-color: #f3f3f3; border-radius: 5px; margin: 20px 0; display: none; }
         .progress-bar { height: 100%; width: 0; background-color: #3498db; border-radius: 5px; text-align: center; line-height: 20px; color: white; }
     </style>
 </head>
@@ -30,11 +32,13 @@
         </div>
         <button onclick="getSummary()">Get Summary</button>
         
-        <div class="progress-bar-container" style="display:none;">
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
             <div id="progressBar" class="progress-bar">0%</div>
         </div>
 
-        <div id="summary" class="summary" style="display:none;">
+        <!-- Summary Results -->
+        <div id="summary" class="summary">
             <h2>Summary</h2>
             <div class="summary-item" id="cash_sales_instore"></div>
             <div class="summary-item" id="cash_sales_delivery"></div>
@@ -45,17 +49,25 @@
     </div>
 
     <script>
+        const apiURL = "https://efc4-71-79-15-27.ngrok-free.app/summary";  // REPLACE WITH YOUR LATEST NGROK URL
+
         function getSummary() {
             const startDatetime = document.getElementById('start_datetime').value;
             const endDatetime = document.getElementById('end_datetime').value;
-            const apiURL = "http://192.168.68.68:5000/summary"; // Replace with your actual local IP
 
+            if (!startDatetime || !endDatetime) {
+                alert("Please enter both start and end dates.");
+                return;
+            }
+
+            // Show Progress Bar
             document.querySelector('.progress-bar-container').style.display = 'block';
             let progress = 0;
             const progressBar = document.getElementById('progressBar');
 
+            // Simulate Progress Bar (Runs for 30 seconds)
             const interval = setInterval(() => {
-                progress += 1;
+                progress += 1;  // Increment by 1%
                 progressBar.style.width = progress + '%';
                 progressBar.innerText = progress + '%';
                 if (progress >= 100) {
@@ -64,11 +76,14 @@
                 }
             }, 300);
 
+            // Fetch Summary Data from Flask API
             fetch(`${apiURL}?start_datetime=${encodeURIComponent(startDatetime)}&end_datetime=${encodeURIComponent(endDatetime)}`)
                 .then(response => response.json())
                 .then(data => {
                     clearInterval(interval);
                     document.querySelector('.progress-bar-container').style.display = 'none';
+
+                    // Display Summary
                     document.getElementById('summary').style.display = 'block';
                     document.getElementById('cash_sales_instore').innerText = `Cash Sales (In-Store): $${data["Cash Sales (In-Store)"].toFixed(2)}`;
                     document.getElementById('cash_sales_delivery').innerText = `Cash Sales (Delivery): $${data["Cash Sales (Delivery)"].toFixed(2)}`;
