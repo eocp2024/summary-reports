@@ -5,45 +5,27 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
-import subprocess
 import os
 import time
 import glob
 
 app = Flask(__name__)
 
-# ✅ Ensure Chrome and ChromeDriver are Installed
-def install_chrome_and_driver():
-    try:
-        print("🔹 Installing Chrome and ChromeDriver...")
-
-        # ✅ Install Chrome and ChromeDriver
-        subprocess.run("apt-get update && apt-get install -y chromium chromium-driver", shell=True, check=True)
-
-        # ✅ Set Chrome Binary Path
-        os.environ["CHROME_BIN"] = "/usr/bin/chromium-browser"
-        os.environ["CHROMEDRIVER_PATH"] = "/usr/bin/chromedriver"
-
-        print("✅ Chrome and ChromeDriver Installed Successfully!")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error installing Chrome: {e}")
-        exit(1)
-
-# ✅ Call installation before using Selenium
-install_chrome_and_driver()
+# ✅ Define paths for prebuilt Chrome and ChromeDriver
+CHROME_BIN = "/opt/google/chrome/chrome"
+CHROMEDRIVER_PATH = "/opt/chromedriver"
 
 # ✅ Configure Chrome WebDriver for Railway/Render Deployment
 def get_chrome_driver():
     chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
-    chrome_options.add_argument("--headless")
+    chrome_options.binary_location = CHROME_BIN
+    chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    
+
     # ✅ Initialize WebDriver with proper binary paths
-    service = Service("/usr/bin/chromedriver")
+    service = Service(CHROMEDRIVER_PATH)
     return webdriver.Chrome(service=service, options=chrome_options)
 
 @app.route('/')
