@@ -76,5 +76,3 @@ pandas
 openpyxl
 gunicorn
 
-"gunicorn" 
-"gunicorn" 
