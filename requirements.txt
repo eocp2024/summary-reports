@@ -70,5 +70,11 @@ flask
 waitress
 pandas
 playwright
+flask
+selenium
+pandas
+openpyxl
+gunicorn
 
+"gunicorn" 
 "gunicorn" 
