@@ -1,8 +1,15 @@
 [phases.setup]
-nixPkgs = ["python310", "bash"]
+nixPkgs = ["python310", "bash"]  # Ensure Python and Bash are available
 
 [phases.build]
-cmds = ["python3 -m ensurepip && python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt"]
+cmds = [
+    "python3 -m ensurepip",  
+    "python3 -m pip install --upgrade pip",  
+    "python3 -m pip install -r requirements.txt"
+]
 
 [phases.start]
-cmds = ["python3 -m pip install gunicorn && gunicorn -b 0.0.0.0:5000 app:app"]
+cmds = [
+    "python3 -m pip install gunicorn",
+    "gunicorn -b 0.0.0.0:5000 app:app"
+]
