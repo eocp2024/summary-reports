@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["python310", "bash", "playwright"]
+nixPkgs = ["python310", "bash"]
 
 [phases.build]
-cmds = ["pip install --upgrade pip && pip install -r requirements.txt && playwright install"]
+cmds = ["python3 -m ensurepip && python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt"]
 
 [phases.start]
-cmds = ["pip install gunicorn && gunicorn -b 0.0.0.0:5000 app:app"]
+cmds = ["python3 -m pip install gunicorn && gunicorn -b 0.0.0.0:5000 app:app"]
