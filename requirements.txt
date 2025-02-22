@@ -71,3 +71,4 @@ waitress
 pandas
 playwright
 
+"gunicorn" 
