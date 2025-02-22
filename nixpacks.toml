@@ -5,4 +5,4 @@ nixPkgs = ["python310", "bash", "playwright"]
 cmds = ["pip install --upgrade pip && pip install -r requirements.txt && playwright install"]
 
 [phases.start]
-cmds = ["gunicorn -b 0.0.0.0:5000 app:app"]
+cmds = ["pip install gunicorn && gunicorn -b 0.0.0.0:5000 app:app"]
