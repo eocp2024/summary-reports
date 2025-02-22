@@ -5,96 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales & Tips Summary</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
         .container { max-width: 600px; margin: 0 auto; }
-        .form-group { margin-bottom: 15px; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; }
-        input { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
-        .summary { margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; display: none; }
-        .summary-item { margin-bottom: 10px; }
-
-        /* Progress Bar */
-        .progress-bar-container { width: 100%; height: 20px; background-color: #f3f3f3; border-radius: 5px; margin: 20px 0; display: none; }
-        .progress-bar { height: 100%; width: 0; background-color: #3498db; border-radius: 5px; text-align: center; line-height: 20px; color: white; }
+        .progress-bar-container { display: none; width: 100%; height: 20px; background: #f3f3f3; border-radius: 5px; margin-top: 20px; }
+        .progress-bar { height: 100%; width: 0; background: #3498db; border-radius: 5px; color: white; text-align: center; }
+        #summary { display: none; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Sales & Tips Summary</h1>
-        <div class="form-group">
-            <label for="start_datetime">Start Date & Time:</label>
-            <input type="datetime-local" id="start_datetime">
-        </div>
-        <div class="form-group">
-            <label for="end_datetime">End Date & Time:</label>
-            <input type="datetime-local" id="end_datetime">
-        </div>
+        <input type="datetime-local" id="start_datetime">
+        <input type="datetime-local" id="end_datetime">
         <button onclick="getSummary()">Get Summary</button>
-        
-        <!-- Progress Bar -->
         <div class="progress-bar-container">
             <div id="progressBar" class="progress-bar">0%</div>
         </div>
-
-        <!-- Summary Results -->
-        <div id="summary" class="summary">
-            <h2>Summary</h2>
-            <div class="summary-item" id="cash_sales_instore"></div>
-            <div class="summary-item" id="cash_sales_delivery"></div>
-            <div class="summary-item" id="tips_instore"></div>
-            <div class="summary-item" id="tips_delivery"></div>
-            <button onclick="window.print()">Print</button>
-        </div>
+        <div id="summary"></div>
     </div>
 
     <script>
-        const apiURL = "https://b1d2-71-79-15-27.ngrok-free.app/summary";  // REPLACE WITH YOUR LATEST NGROK URL
-
         function getSummary() {
-            const startDatetime = document.getElementById('start_datetime').value;
-            const endDatetime = document.getElementById('end_datetime').value;
-
-            if (!startDatetime || !endDatetime) {
-                alert("Please enter both start and end dates.");
-                return;
-            }
-
-            // Show Progress Bar
             document.querySelector('.progress-bar-container').style.display = 'block';
+            document.getElementById('summary').style.display = 'none';
             let progress = 0;
-            const progressBar = document.getElementById('progressBar');
-
-            // Simulate Progress Bar (Runs for 30 seconds)
-            const interval = setInterval(() => {
-                progress += 1;  // Increment by 1%
-                progressBar.style.width = progress + '%';
-                progressBar.innerText = progress + '%';
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    progressBar.innerText = 'Processing complete!';
-                }
-            }, 300);
-
-            // Fetch Summary Data from Flask API
-            fetch(`${apiURL}?start_datetime=${encodeURIComponent(startDatetime)}&end_datetime=${encodeURIComponent(endDatetime)}`)
-                .then(response => response.json())
-                .then(data => {
-                    clearInterval(interval);
-                    document.querySelector('.progress-bar-container').style.display = 'none';
-
-                    // Display Summary
-                    document.getElementById('summary').style.display = 'block';
-                    document.getElementById('cash_sales_instore').innerText = `Cash Sales (In-Store): $${data["Cash Sales (In-Store)"].toFixed(2)}`;
-                    document.getElementById('cash_sales_delivery').innerText = `Cash Sales (Delivery): $${data["Cash Sales (Delivery)"].toFixed(2)}`;
-                    document.getElementById('tips_instore').innerText = `Credit Card Tips (In-Store): $${data["Credit Card Tips (In-Store)"].toFixed(2)}`;
-                    document.getElementById('tips_delivery').innerText = `Credit Card Tips (Delivery): $${data["Credit Card Tips (Delivery)"].toFixed(2)}`;
-                })
-                .catch(error => {
-                    clearInterval(interval);
-                    document.querySelector('.progress-bar-container').style.display = 'none';
-                    alert('Error fetching summary. Please check your input and try again.');
-                    console.error('Error:', error);
+            const interval = setInterval(() => { progress += 2; document.getElementById('progressBar').style.width = progress + '%'; }, 600);
+            fetch(`/summary?start_datetime=${document.getElementById('start_datetime').value}&end_datetime=${document.getElementById('end_datetime').value}`)
+                .then(res => res.json()).then(data => { 
+                    clearInterval(interval); 
+                    document.querySelector('.progress-bar-container').style.display = 'none'; 
+                    document.getElementById('summary').innerHTML = `<h2>Results</h2><pre>${JSON.stringify(data, null, 2)}</pre>`; 
+                    document.getElementById('summary').style.display = 'block'; 
                 });
         }
     </script>
