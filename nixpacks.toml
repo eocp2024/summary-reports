@@ -1,9 +1,9 @@
 [phases.setup]
-nixPkgs = ["python310", "bash"]  # Ensure Python and Bash are available
+nixPkgs = ["python310", "bash"]
 
 [phases.build]
 cmds = [
-    "python3 -m ensurepip",  
+    "python3 -m ensurepip --default-pip",  
     "python3 -m pip install --upgrade pip",  
     "python3 -m pip install -r requirements.txt"
 ]
