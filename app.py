@@ -1,120 +1,93 @@
-import os
-import time
-import glob
-import pandas as pd
 from flask import Flask, render_template, request, jsonify
 from selenium import webdriver
-from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import pandas as pd
+import os
+import glob
 
 app = Flask(__name__)
 
-# Load Browserless WebDriver URL from environment variables
-BROWSER_WEBDRIVER_ENDPOINT = os.getenv("BROWSER_WEBDRIVER_ENDPOINT")
-BROWSER_TOKEN = os.getenv("BROWSER_TOKEN")
-
-if not BROWSER_WEBDRIVER_ENDPOINT or not BROWSER_TOKEN:
-    raise ValueError("Browserless WebDriver endpoint or token is missing!")
-
-# Set Chrome options for remote WebDriver
-chrome_options = Options()
-chrome_options.set_capability("browserless:token", BROWSER_TOKEN)
-chrome_options.add_argument("--headless")  # Run Chrome in headless mode
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--disable-gpu")
-chrome_options.add_argument("--window-size=1920,1080")
-
-def filter_by_datetime(df, start_datetime, end_datetime):
-    """Filters the DataFrame by start and end datetime."""
-    if 'Date' in df.columns and 'Time' in df.columns:
-        df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    else:
-        return df  # Return unfiltered if Date/Time columns are missing
-    
-    start_dt = pd.to_datetime(start_datetime)
-    end_dt = pd.to_datetime(end_datetime)
-    
-    return df[(df['Datetime'] >= start_dt) & (df['Datetime'] <= end_dt)]
-
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html')  # Serves the UI page
 
 @app.route('/summary', methods=['GET'])
 def generate_report():
-    start_datetime = request.args.get('start_datetime')
-    end_datetime = request.args.get('end_datetime')
-
     try:
-        driver = webdriver.Remote(
-            command_executor=BROWSER_WEBDRIVER_ENDPOINT,
-            options=chrome_options
-        )
+        start_datetime = request.args.get('start_datetime')
+        end_datetime = request.args.get('end_datetime')
 
-        # Login to HungerRush
-        driver.get("https://hub.hungerrush.com/")
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys("guttaman86@gmail.com")
-        driver.find_element(By.ID, "Password").send_keys("Eocp2024#")
-        driver.find_element(By.ID, "newLogonButton").click()
+        print(f"Received request for summary from {start_datetime} to {end_datetime}")
 
-        # Navigate to Reports > Order Details
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "rptvNextAnchor"))).click()
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Order Details']"))).click()
+        # Set up Selenium for cloud deployment
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")
+        firefox_options.add_argument("--disable-gpu")
+        firefox_options.add_argument("--no-sandbox")
+        firefox_options.add_argument("--disable-dev-shm-usage")
 
-        # Select store and run report
-        store_trigger = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(@class, 'p-multiselect-trigger-icon')]")))
-        store_trigger.click()
-        WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
-        run_report_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']")))
-        run_report_button.click()
+        driver = webdriver.Firefox(options=firefox_options)
 
-        # Export report to Excel
-        export_dropdown = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='dx-button-content']//span[text()=' Export ']")))
-        driver.execute_script("arguments[0].click();", export_dropdown)
-        export_excel_option = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Export all data to Excel')]")))
-        driver.execute_script("arguments[0].click();", export_excel_option)
+        try:
+            driver.get("https://hub.hungerrush.com/")
 
-        # Wait for download
-        time.sleep(5)
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "UserName"))).send_keys(os.environ.get("HR_USERNAME"))
+            driver.find_element(By.ID, "Password").send_keys(os.environ.get("HR_PASSWORD"))
+            driver.find_element(By.ID, "newLogonButton").click()
+            print("Login successful!")
 
-        # Get the latest Excel file
-        excel_pattern = "/app/downloads/order-details-*.xlsx"  # Adjust path for Railway
-        excel_files = glob.glob(excel_pattern)
-        if not excel_files:
-            return jsonify({"error": "Excel file not found."}), 500
-        excel_file_path = max(excel_files, key=os.path.getctime)
+            # Navigate to order details
+            WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Order Details']"))).click()
+            WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Piqua']"))).click()
+            WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//button[@id='runReport']//span[text()='Run Report']"))).click()
+            WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Export all data to Excel')]"))).click()
 
-        # Read the Excel file
-        df = pd.read_excel(excel_file_path)
-        df_filtered = filter_by_datetime(df, start_datetime, end_datetime)
+            # Locate the latest Excel file
+            excel_pattern = "/home/eocp2024/order-details-*.xlsx"
+            excel_files = glob.glob(excel_pattern)
+            if not excel_files:
+                return jsonify({"error": "Excel file not found."}), 500
 
-        # Calculate sales and tips
-        cash_sales_in_store = df_filtered[df_filtered['Payment'].str.contains('Cash', na=False) & 
-                                          df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False)]['Total'].sum()
-        cash_sales_delivery = df_filtered[df_filtered['Payment'].str.contains('Cash', na=False) & 
-                                          df_filtered['Type'].str.contains('Delivery', na=False)]['Total'].sum()
-        credit_card_tips_in_store = df_filtered[df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False) & 
-                                                df_filtered['Type'].str.contains('Pick Up|Pickup|To Go|Web Pickup|Web Pick Up', na=False)]['Tips'].sum()
-        credit_card_tips_delivery = df_filtered[df_filtered['Payment'].str.contains('Visa|MC|AMEX', na=False) & 
-                                                df_filtered['Type'].str.contains('Delivery', na=False)]['Tips'].sum()
+            excel_file_path = max(excel_files, key=os.path.getctime)
 
-        # Return the summary
-        summary_data = {
-            "Cash Sales (In-Store)": round(cash_sales_in_store, 2),
-            "Cash Sales (Delivery)": round(cash_sales_delivery, 2),
-            "Credit Card Tips (In-Store)": round(credit_card_tips_in_store, 2),
-            "Credit Card Tips (Delivery)": round(credit_card_tips_delivery, 2)
-        }
-        return jsonify(summary_data)
+            # Load the Excel file
+            df = pd.read_excel(excel_file_path)
+            df.columns = df.columns.str.strip()
+
+            # Convert Date and Time into a single datetime column
+            df["Datetime"] = pd.to_datetime(df["Date"].astype(str) + " " + df["Time"].astype(str), errors="coerce")
+            df = df.dropna(subset=["Datetime"])
+
+            # Filter data within selected time range
+            start_dt = pd.to_datetime(start_datetime, errors="coerce")
+            end_dt = pd.to_datetime(end_datetime, errors="coerce")
+
+            if start_dt is pd.NaT or end_dt is pd.NaT:
+                return jsonify({"error": "Invalid start or end datetime format"}), 400
+
+            df_filtered = df[(df["Datetime"] >= start_dt) & (df["Datetime"] <= end_dt)].copy()
+
+            # Calculate sales summary
+            cash_sales = df_filtered[df_filtered["Payment"].str.contains("cash", na=False, regex=True)]["Total"].sum()
+            tips = df_filtered[df_filtered["Payment"].str.contains("visa|mc|amex", na=False, regex=True)]["Tips"].sum()
+
+            return jsonify({
+                "Cash Sales": round(cash_sales, 2),
+                "Credit Card Tips": round(tips, 2),
+            })
+
+        except Exception as e:
+            return jsonify({"error": f"Failed to retrieve report: {str(e)}"}), 500
+
+        finally:
+            driver.quit()
 
     except Exception as e:
-        return jsonify({"error": f"Failed to generate report: {str(e)}"}), 500
-
-    finally:
-        driver.quit()
+        return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))  # Railway's dynamic port assignment
+    app.run(host='0.0.0.0', port=port)
