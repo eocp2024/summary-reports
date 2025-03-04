@@ -5,13 +5,14 @@ FROM ubuntu:latest
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
+# Install dependencies and Firefox from APT
 RUN apt-get update && apt-get install -y \
     python3 python3-pip \
-    firefox-esr \
+    firefox \
     wget unzip \
-    && apt-get clean
+    && apt-get clean\
 
-# Install Geckodriver (Required for Selenium)
+# Install Geckodriver
 RUN wget -q "https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz" -O /tmp/geckodriver.tar.gz \
     && tar -xzf /tmp/geckodriver.tar.gz -C /usr/local/bin \
     && chmod +x /usr/local/bin/geckodriver
